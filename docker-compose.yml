@@ -1,0 +1,54 @@
+# run the flask app in container, also provide postgres db and redis
+# for the app to use
+
+services:
+  # run celery worker in a container
+  worker:
+    build: .
+    # define python path
+    environment:
+      - PYTHONPATH=/app/src
+      - C_FORCE_ROOT=true
+    networks:
+      - net
+    command: celery -A tasks worker --loglevel=info --concurrency=2
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+
+  web:
+    build: .
+    networks:
+      - net
+    command: ./entrypoint.sh 
+    ports:
+      - 8000:8000
+    # copy the app code to the container
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - redis
+  db:
+    image: postgres:latest
+    networks:
+      - net
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: flashcards
+    ports:
+      - 5432:5432
+  redis:
+    image: redis:latest
+    networks:
+      - net
+    ports:
+      - 6379:6379
+
+# build a network by host name 
+networks:
+  net:
+    driver: bridge
